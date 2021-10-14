@@ -1,139 +1,86 @@
-import 'dart:convert';
-
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:hello_world/form.dart';
+import 'package:flutter/widgets.dart';
+import 'package:hola/form.dart';
+import 'package:hola/service/future_read.dart';
 
-import 'model/read_model.dart';
-import 'dart:developer' as devlog;
-// seem we got Stateless Widget , StatefullWidget, State
-// WTF all this just to run one class ?
+import 'model/data_model.dart';
+// as conclusion .. some thing dart is easy .. some part easy to design doesn't mean you will have 0 error ..
+// we will continue at form ..
+// we continue again at the form . So some part consider can copy and paste like service . We do it . no need to retype everything ..
 
-// what this constructor ? redraw ?  no idea ?
 class ListsView extends StatefulWidget {
   const ListsView({Key? key}) : super(key: key);
+
   @override
   State<ListsView> createState() => ListsViewState();
 }
 
-// ajax block
-Future<List<Data>> fetchPerson() async {
-  // the problem here we still need normal  as exception how to control ?
-  List<Data> dataLists = <Data>[];
-  const String url = "http://192.168.0.154/php_tutorial/api.php";
-  // seem everything default not working so dio
-
-  try {
-    var formData = FormData.fromMap({'mode': 'read'});
-    var response = await Dio().post(
-      url,
-      data: formData,
-      options: Options(contentType: Headers.formUrlEncodedContentType),
-    );
-    print(response.data);
-    devlog.log("Response : "+response.data);
-    if (response.statusCode == 200) {
-      // hmm .. this bad..  if error can detect ?
-
-      if (response.data.contains("false")) {
-        throw Exception("parameter not send");
-      } else {
-        dataLists = ReadModel.fromJson(jsonDecode(response.data)).data.toList();
-      }
-    } else {
-      throw Exception("failure");
-    }
-  } catch (e) {
-    print(e);
-  }
-  return dataLists;
-}
-
-// so we only do here code ?
 class ListsViewState extends State<ListsView> {
   late Future<List<Data>> dataLists;
+  // create state constructor
   @override
   void initState() {
     super.initState();
+    // okay diamond in diamond weirdness
     dataLists = fetchPerson();
   }
 
   @override
   Widget build(BuildContext context) {
-    // can we define widget value here default ?
+    // wait wheres my button text?
+    var appBar = AppBar(title: const Text("List"), actions: [
+      TextButton(
+          onPressed: () {
+            Data data = Data(personId: 0, name: "", age: 0);
+            Navigator.push(context,
+                MaterialPageRoute(builder: (context) => FormView(data: data)));
+          },
+          child: const Text("Create", style: TextStyle(color: Colors.white)))
+    ]);
 
-    var scaffold = Scaffold(
-        appBar: AppBar(title: const Text("List"), actions: [
-          TextButton(
-              onPressed: () {
-                // create a fake  data
-                Data data = Data(personId: 0, name: "", age: 0);
-
-                Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) => FormView(data: data)));
-                print("Got click but me ?");
-              },
-              child: const Text("CREATE",
-                  style: TextStyle(
-                    color: Colors.white,
-                    decoration: TextDecoration.underline,
-                    decorationColor: Colors.red,
-                    decorationStyle: TextDecorationStyle.wavy,
-                  )))
-        ]),
+    // if you want separated the future builder your choice .. we don't like nested function
+    // so we try new code if working .. form
+    var layout = Scaffold(
+        appBar: appBar,
         body: Center(
           child: FutureBuilder<List<Data>>(
-            future: dataLists,
-            builder: (context, snapshot) {
-              if (snapshot.hasData) {
-                // hmm here should be a list
-                List<Data> data = snapshot.data!;
-                // return Text(data[0].name);
+              future: dataLists,
+              builder: (context, snapshot) {
+                // must return something ..
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Text("Wait ya");
+                } else if (snapshot.hasError) {
+                  return const Text(
+                      "Error lol. check .. this seem weird give eror  ");
+                } else {
+                  // okay we list data
 
-                return ListView.builder(
-                  padding: const EdgeInsets.all(10),
-                  itemCount: data.length,
-                  itemBuilder: (context, index) {
-                    Data dataByRow = data[index];
-                    // later will using the Dismissible(
-                    // Specify the direction to swipe and delete
-                    //direction: DismissDirection.endToStart,
+                  List<Data> dataLists = snapshot.data!;
 
-                    return Column(
-                      mainAxisSize: MainAxisSize.max,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        ListTile(
-                          title: Text(dataByRow.name),
-                          subtitle: Text(dataByRow.age.toString()),
+                  var listViewBuilder = ListView.builder(
+                      itemCount: dataLists.length,
+                      itemBuilder: (context, index) {
+                        // must return something if not error
+                        Data data = dataLists[index];
+                        // oh here we missing on press on click thing  oh now call on Tap ?
+                        var listsTitle = ListTile(
+                          title: Text(data.name),
+                          subtitle: Text(data.age.toString()),
                           onTap: () {
                             Navigator.push(
                                 context,
                                 MaterialPageRoute(
                                     builder: (context) =>
-                                        FormView(data: dataByRow)));
+                                        FormView(data: data)));
                           },
-                        ),
-                        const Divider(
-                          height: 20,
-                          thickness: 1,
-                        )
-                      ],
-                    );
-                  },
-                );
-              } else if (snapshot.hasError) {
-                return Text('${snapshot.error}');
-              }
+                        );
+                        return listsTitle;
+                      });
 
-              // By default, show a loading spinner.
-              return const CircularProgressIndicator();
-            },
-          ),
+                  return listViewBuilder;
+                }
+              }),
         ));
-
-    return scaffold;
+    return layout;
   }
 }
